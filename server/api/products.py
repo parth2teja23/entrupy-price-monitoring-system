@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -6,6 +6,7 @@ from typing import List
 from db.session import get_db
 from models.product import Product
 from schemas.product import ProductInDB, ProductCreate, ProductUpdate
+from services.notifier import notify_price_change
 
 router = APIRouter()
 
@@ -66,6 +67,7 @@ async def list_products(
 async def update_product(
     product_id: int, 
     product_update: ProductUpdate, 
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(select(Product).where(Product.id == product_id))
@@ -74,12 +76,24 @@ async def update_product(
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found.")
     
+    old_price = db_product.price
+    
     update_data = product_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_product, key, value)
     
     await db.commit()
     await db.refresh(db_product)
+    
+    # Trigger background notification if the price actually changed
+    if product_update.price is not None and product_update.price != old_price:
+        background_tasks.add_task(
+            notify_price_change, 
+            product_id=db_product.id,
+            product_name=db_product.model,
+            old_price=old_price,
+            new_price=db_product.price
+        )
     
     return db_product
 

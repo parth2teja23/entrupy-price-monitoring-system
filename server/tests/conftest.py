@@ -52,5 +52,7 @@ async def setup_database():
 @pytest_asyncio.fixture(scope="module")
 async def async_client():
     from app.main import app
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+    from app.config import settings
+    headers = {"X-API-Key": settings.API_KEY}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test", headers=headers) as client:
         yield client
