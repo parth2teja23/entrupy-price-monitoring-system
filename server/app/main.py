@@ -14,8 +14,9 @@ def create_app() -> FastAPI:
             "project": settings.PROJECT_NAME
         }
 
-    # TODO: Include routers here once defined
-    # application.include_router(api_router, prefix=settings.API_V1_STR)
+    from api import api_router
+
+    application.include_router(api_router, prefix=settings.API_V1_STR)
 
     return application
 
