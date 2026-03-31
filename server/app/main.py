@@ -15,8 +15,10 @@ def create_app() -> FastAPI:
         }
 
     from api import api_router
+    from webapp.routes import router as webapp_router
 
     application.include_router(api_router, prefix=settings.API_V1_STR)
+    application.include_router(webapp_router)
 
     return application
 

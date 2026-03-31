@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Dashboard</h1>
+    <p class="lead">Overview of monitored products and sources.</p>
+    <div class="d-flex gap-2">
+        <button id="refreshBtn" class="btn btn-primary">Refresh Data Now (POST /api/v1/system/refresh)</button>
+        <div id="refreshAlert" style="display:none;" class="alert alert-info py-2 m-0 border-0" role="alert">
+          Refresh triggered!
+        </div>
+    </div>
+</div>
+
+<div class="row text-center mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-header">Total Products</div>
+            <div class="card-body">
+                <h5 class="card-title display-4">{{ total_products }}</h5>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Products by Source
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for source, count in by_source.items() %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ source }}
+                    <span class="badge bg-secondary rounded-pill">{{ count }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                Products by Category
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for category, count in by_category.items() %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ category }}
+                    <span class="badge bg-secondary rounded-pill">{{ count }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('refreshBtn').addEventListener('click', async () => {
+    // You would normally pass API Key here via Headers
+    const btn = document.getElementById('refreshBtn');
+    const alert = document.getElementById('refreshAlert');
+    btn.disabled = true;
+    btn.innerText = 'Refreshing...';
+    try {
+        const response = await fetch('/api/v1/system/refresh', {
+            method: 'POST',
+            headers: {
+                'X-API-Key': 'secret-entrupy-key'
+            }
+        });
+        const data = await response.json();
+        alert.innerText = `Refresh success! Found ${data.total_processed} items.`;
+        alert.style.display = 'block';
+        alert.classList.replace('alert-info', 'alert-success');
+    } catch (e) {
+        alert.innerText = "Error triggering refresh.";
+        alert.style.display = 'block';
+        alert.classList.replace('alert-info', 'alert-danger');
+    }
+    setTimeout(() => { window.location.reload(); }, 2000);
+});
+</script>
+{% endblock %}

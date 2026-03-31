@@ -1,29 +1,37 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List, Any
+from typing import Optional, List
 from datetime import datetime
 
-class ProductBase(BaseModel):
-    source: str
-    brand: str
-    model: str
+class PriceHistoryOut(BaseModel):
     price: float
-    size: Optional[str] = None
-    full_description: Optional[str] = None
-    product_url: str
-    main_images: Optional[List[dict]] = None
-
-class ProductCreate(ProductBase):
-    pass
-
-class ProductUpdate(BaseModel):
-    price: Optional[float] = None
-    size: Optional[str] = None
-    full_description: Optional[str] = None
-    main_images: Optional[List[dict]] = None
-
-class ProductInDB(ProductBase):
-    id: int
-    created_at: datetime
-    updated_at: datetime
+    recorded_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class ProductOut(BaseModel):
+    id: int
+    external_id: str
+    source: str
+    brand: Optional[str] = None
+    title: str
+    category: Optional[str] = None
+    condition: Optional[str] = None
+    price: float
+    currency: str
+    url: str
+    image_url: Optional[str] = None
+    is_sold: bool
+    created_at: datetime
+    updated_at: datetime
+    last_seen_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ProductDetailOut(ProductOut):
+    price_history: List[PriceHistoryOut] = []
+
+class PaginatedProducts(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[ProductOut]
