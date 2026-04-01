@@ -1,3 +1,5 @@
+from __future__ import annotations
+from __future__ import annotations
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -5,9 +7,9 @@ from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel, HttpUrl
 
-from app.database import get_db
+from db.session import get_db
 from models.history import PriceChangeEvent
-from api.deps import get_current_api_key
+from api.deps import verify_api_key
 
 router = APIRouter(prefix="/events", tags=["Events"])
 
@@ -34,7 +36,7 @@ async def get_events(
     limit: int = Query(100, ge=1, le=500),
     product_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
-    api_key: str = Depends(get_current_api_key)
+    api_key: str = Depends(verify_api_key)
 ):
     query = select(PriceChangeEvent)
     

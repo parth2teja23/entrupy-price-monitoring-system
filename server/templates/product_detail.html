@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.title }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/products">Products</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ product.title }}</li>
+  </ol>
+</nav>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h4 class="card-title">{{ product.title }}</h4>
+                <h2 class="text-success">{{ product.currency }} {{ product.price }}</h2>
+                <hr>
+                <p><strong>Source:</strong> <span class="badge bg-secondary">{{ product.source }}</span></p>
+                <p><strong>External ID:</strong> {{ product.external_id }}</p>
+                <p><strong>Category:</strong> {{ product.category }}</p>
+                <p><strong>Condition:</strong> {{ product.condition }}</p>
+                <a href="{{ product.url }}" target="_blank" class="btn btn-outline-primary w-100">View on {{ product.source }}</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                Price History
+            </div>
+            <div class="card-body">
+                <canvas id="priceChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Change Log</div>
+    <ul class="list-group list-group-flush">
+    {% for h in history|reverse %}
+        <li class="list-group-item d-flex justify-content-between">
+            <span>Recorded on: {{ h.recorded_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            <span class="fw-bold">{{ product.currency }} {{ h.price }}</span>
+        </li>
+    {% else %}
+        <li class="list-group-item">No history recorded yet.</li>
+    {% endfor %}
+    </ul>
+</div>
+
+<script>
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    const chartLabels = {{ chart_labels|tojson }};
+    const chartData = {{ chart_prices|tojson }};
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Price ({{ product.currency }})',
+                data: chartData,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1,
+                fill: true,
+                stepped: true
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: false
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

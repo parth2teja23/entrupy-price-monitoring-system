@@ -1,3 +1,5 @@
+from __future__ import annotations
+from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -90,5 +92,19 @@ class PriceTrackerService:
                 )
                 self.db.add(event_record)
                 logger.info(f"Price change detected for {item.title}: {old_price} -> {item.price}")
-        
+                
+                # Dispatch webhooks asynchronously
+                from .webhook_dispatcher import dispatch_webhooks
+                import asyncio
+                payload = {
+                    "event": "price_change",
+                    "product_id": product_record.id,
+                    "product_name": product_record.title,
+                    "old_price": old_price,
+                    "new_price": item.price,
+                    "source": product_record.source,
+                    "url": product_record.url
+                }
+                asyncio.create_task(dispatch_webhooks(self.db, payload))
+
         return product_record

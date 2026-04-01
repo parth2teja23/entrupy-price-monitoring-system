@@ -1,10 +1,12 @@
+from __future__ import annotations
+from __future__ import annotations
 from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from datetime import datetime, timedelta, timezone
 
-from app.database import get_db
+from db.session import get_db
 from models.product import Product
 from models.history import PriceChangeEvent, PriceHistory
 
@@ -28,7 +30,7 @@ async def dashboard_page(request: Request, db: AsyncSession = Depends(get_db)):
     
     total_products = sum(by_source.values())
     
-    return templates.TemplateResponse("dashboard.html", {
+    return templates.TemplateResponse(request=request, name="dashboard.html", context={
         "request": request,
         "total_products": total_products,
         "by_source": by_source,
@@ -43,7 +45,7 @@ async def products_list_page(
     source: str = None,
     db: AsyncSession = Depends(get_db)
 ):
-    query = select(Product).order_by(Product.name)
+    query = select(Product).order_by(Product.title)
     if source:
         query = query.where(Product.source == source)
         
@@ -53,7 +55,7 @@ async def products_list_page(
     res = await db.execute(paginated_query)
     products = res.scalars().all()
     
-    return templates.TemplateResponse("products.html", {
+    return templates.TemplateResponse(request=request, name="products.html", context={
         "request": request,
         "products": products,
         "page": page,
@@ -70,15 +72,15 @@ async def product_detail_page(request: Request, product_id: int, db: AsyncSessio
         raise HTTPException(status_code=404, detail="Product not found")
         
     hist_res = await db.execute(
-        select(PriceHistory).where(PriceHistory.product_id == product_id).order_by(PriceHistory.timestamp)
+        select(PriceHistory).where(PriceHistory.product_id == product_id).order_by(PriceHistory.recorded_at)
     )
     history = hist_res.scalars().all()
     
     # Prepare chart data
-    labels = [h.timestamp.strftime("%Y-%m-%d %H:%M") for h in history]
+    labels = [h.recorded_at.strftime("%Y-%m-%d %H:%M") for h in history]
     prices = [h.price for h in history]
     
-    return templates.TemplateResponse("product_detail.html", {
+    return templates.TemplateResponse(request=request, name="product_detail.html", context={
         "request": request,
         "product": product,
         "chart_labels": labels,

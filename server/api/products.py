@@ -1,3 +1,6 @@
+from __future__ import annotations
+from __future__ import annotations
+from api.deps import verify_api_key
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -6,10 +9,11 @@ from models.product import Product
 from models.history import PriceHistory
 from schemas.product import ProductOut, ProductDetailOut, PaginatedProducts
 
-router = APIRouter()
+router = APIRouter(prefix="/products", tags=["Products"])
 
 @router.get("/", response_model=PaginatedProducts)
 async def list_products(
+    api_key: str = Depends(verify_api_key),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     category: str | None = None,
@@ -44,7 +48,7 @@ async def list_products(
     return {"total": total or 0, "page": page, "limit": limit, "items": items}
 
 @router.get("/{id}", response_model=ProductDetailOut)
-async def get_product(id: int, db: AsyncSession = Depends(get_db)):
+async def get_product(id: int, api_key: str = Depends(verify_api_key), db: AsyncSession = Depends(get_db)):
     product = await db.get(Product, id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")

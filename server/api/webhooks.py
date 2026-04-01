@@ -1,3 +1,5 @@
+from __future__ import annotations
+from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -7,9 +9,9 @@ import hmac
 import hashlib
 import secrets
 
-from app.database import get_db
+from db.session import get_db
 from models.webhook import WebhookSubscription
-from api.deps import get_current_api_key
+from api.deps import verify_api_key
 
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
@@ -31,7 +33,7 @@ class WebhookResponse(BaseModel):
 async def create_webhook(
     webhook_in: WebhookCreate,
     db: AsyncSession = Depends(get_db),
-    api_key_id: int = Depends(get_current_api_key)  # using the raw parsed deps behavior
+    api_key_id: int = Depends(verify_api_key)  # using the raw parsed deps behavior
 ):
     # Verify that we can treat api_key_id as simple user info. 
     # For now, Webhooks can just be inserted globally or associated with an API Key context if strictly needed
@@ -56,7 +58,7 @@ async def create_webhook(
 @router.get("/", response_model=List[WebhookResponse])
 async def list_webhooks(
     db: AsyncSession = Depends(get_db),
-    api_key: str = Depends(get_current_api_key)
+    api_key: str = Depends(verify_api_key)
 ):
     result = await db.execute(select(WebhookSubscription).where(WebhookSubscription.is_active == True))
     return result.scalars().all()
@@ -65,7 +67,7 @@ async def list_webhooks(
 async def delete_webhook(
     webhook_id: int,
     db: AsyncSession = Depends(get_db),
-    api_key: str = Depends(get_current_api_key)
+    api_key: str = Depends(verify_api_key)
 ):
     result = await db.execute(select(WebhookSubscription).where(WebhookSubscription.id == webhook_id))
     webhook = result.scalar_one_or_none()

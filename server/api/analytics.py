@@ -1,19 +1,21 @@
+from __future__ import annotations
+from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from datetime import datetime, timedelta, timezone
 
-from app.database import get_db
+from db.session import get_db
 from models.product import Product
 from models.history import PriceChangeEvent
-from api.deps import get_current_api_key
+from api.deps import verify_api_key
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 @router.get("/")
 async def get_analytics(
     db: AsyncSession = Depends(get_db),
-    api_key: str = Depends(get_current_api_key)
+    api_key: str = Depends(verify_api_key)
 ):
     # Total products grouped by source
     source_stats_query = select(Product.source, func.count(Product.id)).group_by(Product.source)
