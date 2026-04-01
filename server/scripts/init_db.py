@@ -29,5 +29,11 @@ async def init_models():
         await session.commit()
         print("Injected default development api key!")
 
+async def main():
+    await init_models()
+    from scripts.seed_data import import_products
+    await import_products()
+    print("DB initialized and seeded with sample products.")
+
 if __name__ == "__main__":
-    asyncio.run(init_models())
+    asyncio.run(main())
