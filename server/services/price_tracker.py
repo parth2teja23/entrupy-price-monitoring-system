@@ -94,7 +94,7 @@ class PriceTrackerService:
                 logger.info(f"Price change detected for {item.title}: {old_price} -> {item.price}")
                 
                 # Dispatch webhooks asynchronously
-                from .webhook_dispatcher import dispatch_webhooks
+                from .webhook_dispatcher import dispatch_webhooks_with_new_session
                 import asyncio
                 payload = {
                     "event": "price_change",
@@ -105,6 +105,6 @@ class PriceTrackerService:
                     "source": product_record.source,
                     "url": product_record.url
                 }
-                asyncio.create_task(dispatch_webhooks(self.db, payload))
+                asyncio.create_task(dispatch_webhooks_with_new_session(payload))
 
         return product_record

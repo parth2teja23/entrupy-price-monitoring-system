@@ -12,6 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 
 from models.webhook import WebhookSubscription
 from models.history import PriceChangeEvent
+from db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -69,4 +70,12 @@ async def dispatch_webhooks(db: AsyncSession, event_data: Dict[str, Any]):
             except Exception as e:
                 # Eventual delivery failure logged to avoid blocking fetch process
                 logger.error(f"Failed to dispatch to {hook.url} after retries: {str(e)}")
+
+async def dispatch_webhooks_with_new_session(event_data: Dict[str, Any]):
+    """
+    Wrapper to dispatch webhooks within a fresh database session.
+    Safe for background tasks.
+    """
+    async with AsyncSessionLocal() as db:
+        await dispatch_webhooks(db, event_data)
 
