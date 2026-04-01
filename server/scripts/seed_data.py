@@ -11,9 +11,22 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.session import AsyncSessionLocal
 from scrapers.models import ScrapedProduct
 from services.price_tracker import PriceTrackerService
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # Modified to locate the `sample_products` directory accurately
-SAMPLE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "sample_products")
+# We'll check the server directory first, then fallback to project root
+SERVER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_DIR = os.path.dirname(SERVER_DIR)
+
+if os.path.exists(os.path.join(SERVER_DIR, "sample_products")):
+    SAMPLE_DIR = os.path.join(SERVER_DIR, "sample_products")
+elif os.path.exists(os.path.join(PROJECT_DIR, "sample_products")):
+    SAMPLE_DIR = os.path.join(PROJECT_DIR, "sample_products")
+else:
+    SAMPLE_DIR = os.path.join(os.path.dirname(PROJECT_DIR), "sample_products")
 
 def guess_source_from_filename(filename: str) -> str:
     """Extract source identifier from the filename."""
@@ -25,23 +38,24 @@ def guess_source_from_filename(filename: str) -> str:
 async def mock_scraper_generator():
     """Simulates a Data Scraper reading all existing files dynamically"""
     if not os.path.exists(SAMPLE_DIR):
-        print(f"Error: Sample directory not found at {SAMPLE_DIR}")
+        logger.error(f"Sample directory not found at {SAMPLE_DIR}")
         return
 
-    json_files = [f for f in os.listdir(SAMPLE_DIR) if f.endswith('.json')]
-    print(f"Loading {len(json_files)} simulated scraper targets.")
+    json_files = [f for f in os.listdir(SAMPLE_DIR) if f.endswith('.json')]     
+    logger.info(f"Loading {len(json_files)} simulated scraper targets from directory: {SAMPLE_DIR}")
 
     for filename in json_files:
         file_path = os.path.join(SAMPLE_DIR, filename)
         with open(file_path, "r", encoding="utf-8") as f:
             try:
                 data = json.load(f)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as err:
+                logger.error(f"Failed to parse JSON file {filename}: {err}")
                 continue
 
             source_name = guess_source_from_filename(filename)
             product_url = data.get("product_url", "")
-            
+
             # Map external_id. If missing in sample data, hash the URL uniquely.
             external_id = data.get("id") or str(hash(product_url))
 
@@ -79,10 +93,10 @@ async def import_products():
             await tracker.process_scraped_product(item)
             imported_count += 1
             
-        print("Committing transaction batch...")
+        logger.info("Committing transaction batch...")
         await db.commit()
-    
-    print(f"Scraper Data Seeding Complete! Simulated and imported {imported_count} listings across all sources.")
+
+    logger.info(f"Scraper Data Seeding Complete! Simulated and imported {imported_count} listings across all sources.")
 
 if __name__ == "__main__":
     asyncio.run(import_products())
