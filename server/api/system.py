@@ -16,15 +16,21 @@ router = APIRouter(prefix="/system", tags=["System"])
 @router.post("/refresh")
 async def trigger_refresh(
     background_tasks: BackgroundTasks,
+    simulate: bool = False,
     db: AsyncSession = Depends(get_db),
     api_key: str = Depends(verify_api_key)
 ):
     tracker = PriceTrackerService(db)
-    
+
     # Path to sample products
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    data_dir = os.path.join(project_root, "sample_products")
+    price_change_dir = os.path.join(project_root, "sample_products_price_changes")
     
+    if simulate and os.path.exists(price_change_dir):
+        data_dir = price_change_dir
+    else:
+        data_dir = os.path.join(project_root, "sample_products")
+        
     scrapers = [
         FirstDibsScraper(data_dir),
         FashionphileScraper(data_dir),
@@ -38,11 +44,10 @@ async def trigger_refresh(
             count += 1
         return count
 
-    import asyncio
-    # Run all scrapers concurrently just like you described!
-    tasks = [process_scraper(s, tracker) for s in scrapers]
-    results = await asyncio.gather(*tasks)
-    total_processed = sum(results)
+    # Run sequentially on the same session to avoid "Session is already flushing" error
+    total_processed = 0
+    for s in scrapers:
+        total_processed += await process_scraper(s, tracker)
             
     await db.commit()
     

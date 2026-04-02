@@ -20,9 +20,8 @@ class EventResponse(BaseModel):
     new_price: float
     percentage_change: Optional[float]
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
+
+    model_config = {"from_attributes": True}
 
 class PaginatedEvents(BaseModel):
     total: int
@@ -30,18 +29,27 @@ class PaginatedEvents(BaseModel):
     limit: int
     items: List[EventResponse]
 
-@router.get("/", response_model=PaginatedEvents)
+@router.get(
+    "/",
+    response_model=PaginatedEvents,
+    summary="List price change events",
+    description="Fetch a paginated list of all system price change events, optionally filtered by product or delivery status."
+)
 async def get_events(
-    page: int = Query(1, ge=1),
-    limit: int = Query(100, ge=1, le=500),
-    product_id: Optional[int] = None,
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(100, ge=1, le=500, description="Items per page"),
+    product_id: Optional[int] = Query(None, description="Filter by product ID"),
+    delivered: Optional[bool] = Query(None, description="Filter undelivered polling events"),
     db: AsyncSession = Depends(get_db),
     api_key: str = Depends(verify_api_key)
 ):
     query = select(PriceChangeEvent)
-    
+
     if product_id:
         query = query.where(PriceChangeEvent.product_id == product_id)
+        
+    if delivered is not None:
+        query = query.where(PriceChangeEvent.delivered == delivered)
         
     query = query.order_by(PriceChangeEvent.created_at.desc())
     

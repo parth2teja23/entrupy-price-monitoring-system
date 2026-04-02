@@ -79,3 +79,45 @@ async def test_analytics_and_events_empty(async_client: AsyncClient):
     ev_data = events_resp.json()
     assert ev_data["total"] == 0
     assert ev_data["items"] == []
+
+async def test_invalid_price_filters(async_client: AsyncClient):
+    response = await async_client.get("/api/v1/products/?min_price=1000&max_price=500")
+    assert response.status_code == 400
+    assert "min_price cannot be greater" in response.json()["detail"].lower() 
+
+async def test_product_not_found(async_client: AsyncClient):
+    response = await async_client.get("/api/v1/products/99999")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Product not found"
+
+async def test_product_history_not_found(async_client: AsyncClient):
+    response = await async_client.get("/api/v1/products/99999/history")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Product not found"
+
+async def test_webhook_invalid_payload(async_client: AsyncClient):
+    payload = {
+        "url": "not-a-valid-url",
+        "events": ["price_change"]
+    }
+    response = await async_client.post("/api/v1/webhooks/", json=payload)    
+    assert response.status_code == 422  # Unprocessable Entity via Pydantic validation
+
+async def test_polling_events_delivered_filter(async_client: AsyncClient):
+    # Ensure querying for boolean delivered flags works
+    response = await async_client.get("/api/v1/events/?delivered=false")      
+    assert response.status_code == 200
+    assert "items" in response.json()
+
+async def test_rate_limiting(async_client: AsyncClient):
+    # Hammer the analytics API until 429 Too Many Requests is triggered
+    limit_hit = False
+    for _ in range(65):
+        resp = await async_client.get("/api/v1/analytics/")
+        if resp.status_code == 429:
+            limit_hit = True
+            assert "Rate Limit Exceeded" in resp.json()["detail"]
+            break
+        assert resp.status_code == 200
+    
+    assert limit_hit is True, "Rate limit of 60 was not triggered."

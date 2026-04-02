@@ -16,19 +16,17 @@ from api.deps import verify_api_key
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 class WebhookCreate(BaseModel):
-    url: str
+    url: HttpUrl
     events: List[str] = ["price_change"]
-    
+
 class WebhookResponse(BaseModel):
     id: int
     url: str
     secret_key: str
     events: List[str]
     is_active: bool
-    
-    class Config:
-        from_attributes = True
 
+    model_config = {"from_attributes": True}
 @router.post("/", response_model=WebhookResponse, status_code=status.HTTP_201_CREATED)
 async def create_webhook(
     webhook_in: WebhookCreate,

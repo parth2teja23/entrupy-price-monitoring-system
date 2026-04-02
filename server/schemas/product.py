@@ -37,3 +37,10 @@ class PaginatedProducts(BaseModel):
     page: int
     limit: int
     items: List[ProductOut]
+
+class PaginatedPriceHistory(BaseModel):
+    total: int
+    page: int
+    limit: int
+    items: List[PriceHistoryOut]
+    items: List[ProductOut]

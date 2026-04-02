@@ -84,14 +84,25 @@ async def mock_scraper_generator():
                 condition=data.get("condition", "Used")
             )
 
+from scrapers.firstdibs import FirstDibsScraper
+from scrapers.fashionphile import FashionphileScraper
+from scrapers.grailed import GrailedScraper
+
 async def import_products():
     imported_count = 0
+    scrapers = [
+        FirstDibsScraper(SAMPLE_DIR),
+        FashionphileScraper(SAMPLE_DIR),
+        GrailedScraper(SAMPLE_DIR)
+    ]
+    
     async with AsyncSessionLocal() as db:
         tracker = PriceTrackerService(db)
-        
-        async for item in mock_scraper_generator():
-            await tracker.process_scraped_product(item)
-            imported_count += 1
+
+        for scraper in scrapers:
+            async for item in scraper.fetch_listings():
+                await tracker.process_scraped_product(item)
+                imported_count += 1
             
         logger.info("Committing transaction batch...")
         await db.commit()

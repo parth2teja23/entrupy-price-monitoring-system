@@ -8,6 +8,7 @@
     <p class="lead">Overview of monitored products and sources.</p>
     <div class="d-flex gap-2">
         <button id="refreshBtn" class="btn btn-primary">Refresh Data Now (POST /api/v1/system/refresh)</button>
+        <button id="simulateBtn" class="btn btn-warning">Simulate price change</button>
         <div id="refreshAlert" style="display:none;" class="alert alert-info py-2 m-0 border-0" role="alert">
           Refresh triggered!
         </div>
@@ -59,29 +60,32 @@
 </div>
 
 <script>
-document.getElementById('refreshBtn').addEventListener('click', async () => {
-    // You would normally pass API Key here via Headers
-    const btn = document.getElementById('refreshBtn');
+async function handleRefresh(btnId, isSimulate) {
+    const btn = document.getElementById(btnId);
     const alert = document.getElementById('refreshAlert');
     btn.disabled = true;
-    btn.innerText = 'Refreshing...';
+    btn.innerText = 'Working...';
     try {
-        const response = await fetch('/api/v1/system/refresh', {
+        const url = isSimulate ? '/api/v1/system/refresh?simulate=true' : '/api/v1/system/refresh';
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'X-API-Key': 'secret-entrupy-key'
             }
         });
         const data = await response.json();
-        alert.innerText = `Refresh success! Found ${data.total_processed} items.`;
+        alert.innerText = `Success! Found ${data.total_processed} items.`;
         alert.style.display = 'block';
-        alert.classList.replace('alert-info', 'alert-success');
+        alert.className = 'alert alert-success py-2 m-0 border-0';
     } catch (e) {
-        alert.innerText = "Error triggering refresh.";
+        alert.innerText = "Error triggering action.";
         alert.style.display = 'block';
-        alert.classList.replace('alert-info', 'alert-danger');
+        alert.className = 'alert alert-danger py-2 m-0 border-0';
     }
     setTimeout(() => { window.location.reload(); }, 2000);
-});
+}
+
+document.getElementById('refreshBtn').addEventListener('click', () => handleRefresh('refreshBtn', false));
+document.getElementById('simulateBtn').addEventListener('click', () => handleRefresh('simulateBtn', true));
 </script>
 {% endblock %}
