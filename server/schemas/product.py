@@ -5,6 +5,7 @@ from typing import Optional, List
 from datetime import datetime
 
 class PriceHistoryOut(BaseModel):
+    id: int
     price: float
     recorded_at: datetime
 
@@ -43,4 +44,3 @@ class PaginatedPriceHistory(BaseModel):
     page: int
     limit: int
     items: List[PriceHistoryOut]
-    items: List[ProductOut]

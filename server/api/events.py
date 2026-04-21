@@ -57,7 +57,18 @@ async def get_events(
     paginated_query = query.offset(offset).limit(limit)
     
     result = await db.execute(paginated_query)
-    items = result.scalars().all()
+    db_items = result.scalars().all()
+    items = [
+        EventResponse(
+            id=item.id,
+            product_id=item.product_id,
+            old_price=item.old_price,
+            new_price=item.new_price,
+            percentage_change=item.change_pct,
+            created_at=item.created_at,
+        )
+        for item in db_items
+    ]
     
     # Needs count logic
     from sqlalchemy import func

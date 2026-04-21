@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
 
 # Add server directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,17 +17,18 @@ import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# Modified to locate the `sample_products` directory accurately
-# We'll check the server directory first, then fallback to project root
-SERVER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROJECT_DIR = os.path.dirname(SERVER_DIR)
+# Resolve the sample directory from the project root so seeding works
+# regardless of whether the script is launched from server/ or the repo root.
+SERVER_DIR = Path(__file__).resolve().parents[1]
+PROJECT_DIR = SERVER_DIR.parent
 
-if os.path.exists(os.path.join(SERVER_DIR, "sample_products")):
-    SAMPLE_DIR = os.path.join(SERVER_DIR, "sample_products")
-elif os.path.exists(os.path.join(PROJECT_DIR, "sample_products")):
-    SAMPLE_DIR = os.path.join(PROJECT_DIR, "sample_products")
-else:
-    SAMPLE_DIR = os.path.join(os.path.dirname(PROJECT_DIR), "sample_products")
+SAMPLE_DIR_CANDIDATES = [
+    SERVER_DIR / "sample_products",
+    PROJECT_DIR / "sample_products",
+    PROJECT_DIR.parent / "sample_products",
+]
+
+SAMPLE_DIR = next((path for path in SAMPLE_DIR_CANDIDATES if path.exists()), SAMPLE_DIR_CANDIDATES[0])
 
 def guess_source_from_filename(filename: str) -> str:
     """Extract source identifier from the filename."""
@@ -36,28 +38,27 @@ def guess_source_from_filename(filename: str) -> str:
     return "unknown"
 
 async def mock_scraper_generator():
-    """Simulates a Data Scraper reading all existing files dynamically"""
-    if not os.path.exists(SAMPLE_DIR):
+    """Simulates a Data Scraper reading all existing files dynamically."""
+    if not SAMPLE_DIR.exists():
         logger.error(f"Sample directory not found at {SAMPLE_DIR}")
         return
 
-    json_files = [f for f in os.listdir(SAMPLE_DIR) if f.endswith('.json')]     
+    json_files = sorted(path for path in SAMPLE_DIR.iterdir() if path.suffix == ".json")
     logger.info(f"Loading {len(json_files)} simulated scraper targets from directory: {SAMPLE_DIR}")
 
-    for filename in json_files:
-        file_path = os.path.join(SAMPLE_DIR, filename)
-        with open(file_path, "r", encoding="utf-8") as f:
+    for file_path in json_files:
+        with file_path.open("r", encoding="utf-8") as f:
             try:
                 data = json.load(f)
             except json.JSONDecodeError as err:
-                logger.error(f"Failed to parse JSON file {filename}: {err}")
+                logger.error(f"Failed to parse JSON file {file_path.name}: {err}")
                 continue
 
-            source_name = guess_source_from_filename(filename)
+            source_name = guess_source_from_filename(file_path.name)
             product_url = data.get("product_url", "")
 
             # Map external_id. If missing in sample data, hash the URL uniquely.
-            external_id = data.get("id") or str(hash(product_url))
+            external_id = data.get("product_id") or data.get("id") or str(hash(product_url))
 
             # Clean price string explicitly into floats
             raw_price = data.get("price", 0)
@@ -73,7 +74,7 @@ async def mock_scraper_generator():
             image_url = main_images[0].get("url") if main_images and isinstance(main_images[0], dict) else None
 
             yield ScrapedProduct(
-                external_id=external_id,
+                external_id=str(external_id),
                 source=source_name,
                 title=data.get("model", "Unknown Item"),
                 brand=data.get("brand", "Unknown"),
@@ -81,28 +82,18 @@ async def mock_scraper_generator():
                 url=product_url,
                 image_url=image_url,
                 category=data.get("category", "General"),
-                condition=data.get("condition", "Used")
+                condition=data.get("condition", "Used"),
             )
-
-from scrapers.firstdibs import FirstDibsScraper
-from scrapers.fashionphile import FashionphileScraper
-from scrapers.grailed import GrailedScraper
 
 async def import_products():
     imported_count = 0
-    scrapers = [
-        FirstDibsScraper(SAMPLE_DIR),
-        FashionphileScraper(SAMPLE_DIR),
-        GrailedScraper(SAMPLE_DIR)
-    ]
     
     async with AsyncSessionLocal() as db:
         tracker = PriceTrackerService(db)
 
-        for scraper in scrapers:
-            async for item in scraper.fetch_listings():
-                await tracker.process_scraped_product(item)
-                imported_count += 1
+        async for item in mock_scraper_generator():
+            await tracker.process_scraped_product(item)
+            imported_count += 1
             
         logger.info("Committing transaction batch...")
         await db.commit()
